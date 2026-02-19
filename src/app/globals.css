@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 5.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 5.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5.9%;
+    --primary: 0 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 97.6%;
+    --secondary-foreground: 0 0% 5.9%;
+    --muted: 0 0% 97.6%;
+    --muted-foreground: 0 0% 37.6%;
+    --accent: 0 0% 97.6%;
+    --accent-foreground: 0 0% 5.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 216 100% 42%;
+    --radius: 0.5rem;
+    --yt-red: #FF0000;
+    --yt-dark-red: #CC0000;
+    --yt-text-primary: #0F0F0F;
+    --yt-text-secondary: #606060;
+    --yt-surface: #F9F9F9;
+    --yt-border: #E5E5E5;
+    --yt-search-bg: #F1F1F1;
+    --yt-focus-blue: #065FD4;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-white text-[#0F0F0F];
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+/* Video player custom styles */
+video::-webkit-media-controls-panel {
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
