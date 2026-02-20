@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
   ThumbsUp,
@@ -12,8 +11,10 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { VideoPlayer } from "@/components/video-player";
 import { VideoCard } from "@/components/video-card";
+import { SafeImage } from "@/components/safe-image";
 import { useVideoStore } from "@/lib/store";
 import { formatViews, formatTimeAgo, formatSubscribers } from "@/lib/format";
 import { Video, Channel } from "@/lib/types";
@@ -25,7 +26,7 @@ export default function WatchPage() {
     useVideoStore();
 
   const [descExpanded, setDescExpanded] = useState(false);
-  const [viewIncremented, setViewIncremented] = useState(false);
+  const [viewIncremented, setViewIncremented] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [video, setVideo] = useState<Video | null>(null);
   const [channel, setChannel] = useState<Channel | null>(null);
@@ -63,52 +64,56 @@ export default function WatchPage() {
   }, [videoId, loadVideoById, loadRecommendedVideos]);
 
   useEffect(() => {
-    if (video && !viewIncremented) {
+    if (video && viewIncremented !== videoId) {
       incrementViews(videoId);
-      setViewIncremented(true);
+      setViewIncremented(videoId);
     }
   }, [videoId, video, viewIncremented, incrementViews]);
 
-  // Reset when videoId changes
+  // Reset description expanded when videoId changes
   useEffect(() => {
-    setViewIncremented(false);
     setDescExpanded(false);
   }, [videoId]);
 
   if (loading) {
     return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="w-8 h-8 border-2 border-[#E5E5E5] border-t-[#FF0000] rounded-full animate-spin" />
-        </div>
-      </AppShell>
+      <ErrorBoundary>
+        <AppShell>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="w-8 h-8 border-2 border-[#E5E5E5] border-t-[#FF0000] rounded-full animate-spin" />
+          </div>
+        </AppShell>
+      </ErrorBoundary>
     );
   }
 
   if (!video) {
     return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <h2 className="text-xl font-medium text-[#0F0F0F] mb-2">
-              Video not found
-            </h2>
-            <p className="text-sm text-[#606060] mb-4">
-              The video you're looking for doesn't exist.
-            </p>
-            <Link
-              href="/"
-              className="text-sm text-[#065FD4] hover:underline"
-            >
-              Go back home
-            </Link>
+      <ErrorBoundary>
+        <AppShell>
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <h2 className="text-xl font-medium text-[#0F0F0F] mb-2">
+                Video not found
+              </h2>
+              <p className="text-sm text-[#606060] mb-4">
+                The video you're looking for doesn't exist.
+              </p>
+              <Link
+                href="/"
+                className="text-sm text-[#065FD4] hover:underline"
+              >
+                Go back home
+              </Link>
+            </div>
           </div>
-        </div>
-      </AppShell>
+        </AppShell>
+      </ErrorBoundary>
     );
   }
 
   return (
+    <ErrorBoundary>
     <AppShell hideSidebar>
       <div className="max-w-[1920px] mx-auto px-4 md:px-6 lg:px-24 py-6">
         <div className="flex flex-col lg:flex-row gap-6">
@@ -133,7 +138,7 @@ export default function WatchPage() {
                     >
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-[#E5E5E5]">
                         {channel.avatarUrl ? (
-                          <Image
+                          <SafeImage
                             src={channel.avatarUrl}
                             alt={channel.name}
                             width={40}
@@ -240,5 +245,6 @@ export default function WatchPage() {
         </div>
       </div>
     </AppShell>
+    </ErrorBoundary>
   );
 }

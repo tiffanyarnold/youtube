@@ -80,12 +80,18 @@ export function UploadForm() {
 
     setIsUploading(true);
     setUploadError("");
+    setUploadProgress(0);
 
     // Show progress animation
-    for (let i = 0; i <= 80; i += 10) {
-      await new Promise((r) => setTimeout(r, 100));
-      setUploadProgress(i);
-    }
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 80) {
+          clearInterval(progressInterval);
+          return 80;
+        }
+        return prev + 10;
+      });
+    }, 100);
 
     try {
       const result = await uploadVideo({
@@ -97,15 +103,17 @@ export function UploadForm() {
         duration: "0:00",
         tags: tags
           .split(",")
-          .map((t) => t.trim())
+          .map((t) => t.trim().toLowerCase())
           .filter(Boolean),
       });
 
+      clearInterval(progressInterval);
       setUploadProgress(100);
       await new Promise((r) => setTimeout(r, 300));
       setIsUploading(false);
       router.push(`/watch/${result.video.id}`);
     } catch (err: unknown) {
+      clearInterval(progressInterval);
       const message = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setUploadError(message);
       setIsUploading(false);

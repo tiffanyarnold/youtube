@@ -2,9 +2,9 @@
 
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Video, Channel } from "@/lib/types";
 import { formatViews, formatTimeAgo } from "@/lib/format";
+import { SafeImage } from "@/components/safe-image";
 
 interface VideoCardProps {
   video: Video;
@@ -17,7 +17,7 @@ export function VideoCard({ video, channel, compact = false }: VideoCardProps) {
     return (
       <Link href={`/watch/${video.id}`} className="flex gap-2 group">
         <div className="relative flex-shrink-0 w-[168px] aspect-video rounded-lg overflow-hidden bg-[#F1F1F1]">
-          <Image
+          <SafeImage
             src={video.thumbnailUrl}
             alt={video.title}
             fill
@@ -49,7 +49,7 @@ export function VideoCard({ video, channel, compact = false }: VideoCardProps) {
     <div className="group">
       <Link href={`/watch/${video.id}`} className="block">
         <div className="relative aspect-video rounded-xl overflow-hidden bg-[#F1F1F1] mb-3">
-          <Image
+          <SafeImage
             src={video.thumbnailUrl}
             alt={video.title}
             fill
@@ -67,7 +67,7 @@ export function VideoCard({ video, channel, compact = false }: VideoCardProps) {
           <Link href={`/c/${channel.slug}`} className="flex-shrink-0">
             <div className="w-9 h-9 rounded-full overflow-hidden bg-[#E5E5E5]">
               {channel.avatarUrl ? (
-                <Image
+                <SafeImage
                   src={channel.avatarUrl}
                   alt={channel.name}
                   width={36}

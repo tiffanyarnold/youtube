@@ -41,6 +41,12 @@ function mapVideoWithChannel(row: VideoWithChannel): { video: Video; channel: Ch
   return { video, channel };
 }
 
+// Sanitize search input to prevent PostgREST query injection
+function sanitizeSearch(input: string): string {
+  // Escape special PostgREST characters: %, _, (, ), comma, dot, backslash
+  return input.replace(/[%_\\(),.*]/g, (char) => `\\${char}`);
+}
+
 // -------- API calls using Supabase client directly --------
 
 export async function fetchVideos(options?: {
@@ -48,6 +54,7 @@ export async function fetchVideos(options?: {
   channelId?: string;
   excludeId?: string;
   limit?: number;
+  tag?: string;
 }): Promise<{ video: Video; channel: Channel }[]> {
   let query = supabase
     .from("videos")
@@ -58,9 +65,14 @@ export async function fetchVideos(options?: {
     .limit(options?.limit || 50);
 
   if (options?.search) {
+    const sanitized = sanitizeSearch(options.search);
     query = query.or(
-      `title.ilike.%${options.search}%,description.ilike.%${options.search}%`
+      `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`
     );
+  }
+
+  if (options?.tag) {
+    query = query.contains("tags", [options.tag]);
   }
 
   if (options?.channelId) {

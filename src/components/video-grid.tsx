@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
-import { Video } from "@/lib/types";
+import React, { useEffect, useState, useRef } from "react";
+import { Video, Channel } from "@/lib/types";
 import { VideoCard } from "@/components/video-card";
 import { useVideoStore } from "@/lib/store";
+import { fetchVideoById } from "@/lib/api";
 
 interface VideoGridProps {
   videos: Video[];
@@ -11,6 +12,46 @@ interface VideoGridProps {
 
 export function VideoGrid({ videos }: VideoGridProps) {
   const { getChannelById } = useVideoStore();
+  const [fallbackChannels, setFallbackChannels] = useState<
+    Record<string, Channel>
+  >({});
+  const fetchedRef = useRef<Set<string>>(new Set());
+
+  // Find videos with missing channels and fetch them
+  useEffect(() => {
+    const missingChannelIds = videos
+      .map((v) => v.channelId)
+      .filter(
+        (id) => !getChannelById(id) && !fetchedRef.current.has(id)
+      )
+      .filter((id, idx, arr) => arr.indexOf(id) === idx); // dedupe
+
+    if (missingChannelIds.length === 0) return;
+
+    // Mark as fetching to prevent re-fetches
+    missingChannelIds.forEach((id) => fetchedRef.current.add(id));
+
+    // Fetch each missing video to get its channel data
+    missingChannelIds.forEach(async (channelId) => {
+      const video = videos.find((v) => v.channelId === channelId);
+      if (!video) return;
+      try {
+        const result = await fetchVideoById(video.id);
+        if (result) {
+          setFallbackChannels((prev) => ({
+            ...prev,
+            [result.channel.id]: result.channel,
+          }));
+        }
+      } catch {
+        // Silently fail — card will render without channel info
+      }
+    });
+  }, [videos, getChannelById]);
+
+  const resolveChannel = (channelId: string): Channel | undefined => {
+    return getChannelById(channelId) || fallbackChannels[channelId];
+  };
 
   if (videos.length === 0) {
     return (
@@ -39,7 +80,7 @@ export function VideoGrid({ videos }: VideoGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
       {videos.map((video) => {
-        const channel = getChannelById(video.channelId);
+        const channel = resolveChannel(video.channelId);
         return (
           <VideoCard key={video.id} video={video} channel={channel} />
         );

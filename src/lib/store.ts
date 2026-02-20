@@ -29,7 +29,7 @@ interface VideoStore {
   setSearchQuery: (query: string) => void;
 
   // Async data actions
-  loadVideos: (search?: string) => Promise<void>;
+  loadVideos: (search?: string, tag?: string) => Promise<void>;
   loadVideoById: (
     videoId: string
   ) => Promise<{ video: Video; channel: Channel } | null>;
@@ -68,10 +68,10 @@ export const useVideoStore = create<VideoStore>()((set, get) => ({
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSearchQuery: (query) => set({ searchQuery: query }),
 
-  loadVideos: async (search?: string) => {
+  loadVideos: async (search?: string, tag?: string) => {
     set({ loading: true, error: null });
     try {
-      const results = await fetchVideos({ search });
+      const results = await fetchVideos({ search, tag });
       const videos = results.map((r) => r.video);
       const channelMap = { ...get().channelMap };
       results.forEach((r) => {
@@ -85,9 +85,6 @@ export const useVideoStore = create<VideoStore>()((set, get) => ({
   },
 
   loadVideoById: async (videoId: string) => {
-    const cached = get().videoMap[videoId];
-    if (cached) return cached;
-
     try {
       const result = await fetchVideoById(videoId);
       if (result) {

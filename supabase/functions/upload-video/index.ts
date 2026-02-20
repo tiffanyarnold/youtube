@@ -69,11 +69,11 @@ Deno.serve(async (req) => {
         channel_id: channel.id,
         title: title.trim(),
         description: (description || "").trim(),
-        thumbnail_url: thumbnail_url || "",
+        thumbnail_url: thumbnail_url || `https://images.unsplash.com/photo-1611162616475-46b635cb6868?w=400&q=80`,
         video_url,
         views: 0,
         duration: duration || "0:00",
-        tags: tags || [],
+        tags: (tags || []).map((t: string) => t.toLowerCase().trim()).filter(Boolean),
       })
       .select("*, channels!inner(id, name, slug, avatar_url, banner_url, description, subscriber_count, created_at)")
       .single();

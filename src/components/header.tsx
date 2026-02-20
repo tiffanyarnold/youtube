@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu, Search, Upload, Video } from "lucide-react";
@@ -10,6 +10,11 @@ export function Header() {
   const router = useRouter();
   const { toggleSidebar, searchQuery, setSearchQuery } = useVideoStore();
   const [localSearch, setLocalSearch] = useState(searchQuery);
+
+  // Sync local search with global store (e.g. when navigating via logo click)
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

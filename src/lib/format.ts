@@ -5,7 +5,7 @@ export function formatViews(views: number): string {
   }
   if (views >= 1_000) {
     const val = views / 1_000;
-    return `${val % 1 === 0 ? val.toFixed(0) : val.toFixed(0)}K views`;
+    return `${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)}K views`;
   }
   return `${views} views`;
 }

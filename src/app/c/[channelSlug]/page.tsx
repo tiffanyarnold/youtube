@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Upload } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { VideoGrid } from "@/components/video-grid";
+import { SafeImage } from "@/components/safe-image";
 import { useVideoStore } from "@/lib/store";
 import { formatSubscribers } from "@/lib/format";
 import { Channel, Video } from "@/lib/types";
@@ -48,17 +49,20 @@ export default function ChannelPage() {
 
   if (loading) {
     return (
-      <AppShell>
-        <div className="flex items-center justify-center py-32">
-          <div className="w-8 h-8 border-2 border-[#E5E5E5] border-t-[#FF0000] rounded-full animate-spin" />
-        </div>
-      </AppShell>
+      <ErrorBoundary>
+        <AppShell>
+          <div className="flex items-center justify-center py-32">
+            <div className="w-8 h-8 border-2 border-[#E5E5E5] border-t-[#FF0000] rounded-full animate-spin" />
+          </div>
+        </AppShell>
+      </ErrorBoundary>
     );
   }
 
   if (!channel) {
     return (
-      <AppShell>
+      <ErrorBoundary>
+        <AppShell>
         <div className="flex flex-col items-center justify-center py-32 text-center px-4">
           <div className="w-24 h-24 rounded-full bg-[#F1F1F1] flex items-center justify-center mb-4">
             <svg
@@ -85,16 +89,18 @@ export default function ChannelPage() {
           </Link>
         </div>
       </AppShell>
+      </ErrorBoundary>
     );
   }
 
   return (
+    <ErrorBoundary>
     <AppShell>
       <div className="max-w-[1284px] mx-auto">
         {/* Banner */}
         {channel.bannerUrl ? (
           <div className="w-full h-[120px] sm:h-[172px] md:h-[212px] rounded-xl overflow-hidden mx-4 md:mx-6 mt-4 max-w-[calc(100%-32px)] md:max-w-[calc(100%-48px)]">
-            <Image
+            <SafeImage
               src={channel.bannerUrl}
               alt={`${channel.name} banner`}
               width={1284}
@@ -113,7 +119,7 @@ export default function ChannelPage() {
             {/* Avatar */}
             <div className="w-16 h-16 md:w-[88px] md:h-[88px] rounded-full overflow-hidden bg-[#E5E5E5] flex-shrink-0">
               {channel.avatarUrl ? (
-                <Image
+                <SafeImage
                   src={channel.avatarUrl}
                   alt={channel.name}
                   width={88}
@@ -190,5 +196,6 @@ export default function ChannelPage() {
         </div>
       </div>
     </AppShell>
+    </ErrorBoundary>
   );
 }
