@@ -10,23 +10,20 @@ import { useVideoStore } from "@/lib/store";
 export default function HomePage() {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") || "";
-  const { setSearchQuery, getFilteredVideos, videos } = useVideoStore();
+  const { setSearchQuery, loadVideos, videos, loading } =
+    useVideoStore();
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   useEffect(() => {
     setSearchQuery(q);
-  }, [q, setSearchQuery]);
+    const search =
+      selectedCategory !== "All" ? selectedCategory.toLowerCase() : q;
+    loadVideos(search || undefined);
+  }, [q, selectedCategory, setSearchQuery, loadVideos]);
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
-    if (category === "All") {
-      setSearchQuery(q);
-    } else {
-      setSearchQuery(category.toLowerCase());
-    }
   };
-
-  const filteredVideos = getFilteredVideos();
 
   return (
     <AppShell>
@@ -35,7 +32,13 @@ export default function HomePage() {
           selectedCategory={selectedCategory}
           onSelect={handleCategorySelect}
         />
-        <VideoGrid videos={filteredVideos} />
+        {loading && videos.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-[#E5E5E5] border-t-[#FF0000] rounded-full animate-spin" />
+          </div>
+        ) : (
+          <VideoGrid videos={videos} />
+        )}
       </div>
     </AppShell>
   );

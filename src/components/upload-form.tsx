@@ -4,7 +4,6 @@ import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Link2, X, Image as ImageIcon, Check, AlertCircle } from "lucide-react";
 import { useVideoStore } from "@/lib/store";
-import { Video } from "@/lib/types";
 
 type Step = "link" | "details" | "review";
 
@@ -33,7 +32,7 @@ function getYouTubeEmbedUrl(videoId: string): string {
 
 export function UploadForm() {
   const router = useRouter();
-  const { findOrCreateChannel, addVideo } = useVideoStore();
+  const { uploadVideo } = useVideoStore();
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("link");
@@ -47,6 +46,7 @@ export function UploadForm() {
   const [tags, setTags] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
 
   const handleUrlSubmit = () => {
     const videoId = extractYouTubeId(youtubeUrl.trim());
@@ -79,34 +79,38 @@ export function UploadForm() {
     if (!youtubeVideoId || !channelName.trim() || !title.trim()) return;
 
     setIsUploading(true);
+    setUploadError("");
 
-    // Simulate processing
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise((r) => setTimeout(r, 150));
+    // Show progress animation
+    for (let i = 0; i <= 80; i += 10) {
+      await new Promise((r) => setTimeout(r, 100));
       setUploadProgress(i);
     }
 
-    const channel = findOrCreateChannel(channelName);
+    try {
+      const result = await uploadVideo({
+        channelName: channelName.trim(),
+        title: title.trim(),
+        description: description.trim(),
+        thumbnailUrl: thumbnailPreview || getYouTubeThumbnail(youtubeVideoId),
+        videoUrl: getYouTubeEmbedUrl(youtubeVideoId),
+        duration: "0:00",
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+      });
 
-    const newVideo: Video = {
-      id: `v-${Date.now()}`,
-      channelId: channel.id,
-      title: title.trim(),
-      description: description.trim(),
-      thumbnailUrl: thumbnailPreview || getYouTubeThumbnail(youtubeVideoId),
-      videoUrl: getYouTubeEmbedUrl(youtubeVideoId),
-      views: 0,
-      duration: "0:00",
-      uploadedAt: new Date().toISOString(),
-      tags: tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-    };
-
-    addVideo(newVideo);
-    setIsUploading(false);
-    router.push(`/watch/${newVideo.id}`);
+      setUploadProgress(100);
+      await new Promise((r) => setTimeout(r, 300));
+      setIsUploading(false);
+      router.push(`/watch/${result.video.id}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Upload failed. Please try again.";
+      setUploadError(message);
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   if (step === "link") {
@@ -410,7 +414,14 @@ export function UploadForm() {
         </div>
 
         {/* Footer with upload progress or submit */}
-        <div className="px-6 py-4 border-t border-[#E5E5E5] flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-[#E5E5E5] flex flex-col gap-2">
+          {uploadError && (
+            <div className="flex items-center gap-1.5 text-[#FF0000]">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <p className="text-xs">{uploadError}</p>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
           {isUploading ? (
             <div className="flex-1">
               <div className="flex items-center gap-3">
@@ -447,6 +458,7 @@ export function UploadForm() {
               </button>
             </>
           )}
+          </div>
         </div>
       </div>
     </div>

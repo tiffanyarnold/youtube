@@ -9,21 +9,44 @@ import { AppShell } from "@/components/app-shell";
 import { VideoGrid } from "@/components/video-grid";
 import { useVideoStore } from "@/lib/store";
 import { formatSubscribers } from "@/lib/format";
+import { Channel, Video } from "@/lib/types";
 
 export default function ChannelPage() {
   const params = useParams();
   const channelSlug = params.channelSlug as string;
-  const { getChannelBySlug, getVideosByChannel } = useVideoStore();
-  const [hydrated, setHydrated] = useState(false);
+  const { loadChannelBySlug, loadChannelVideos } = useVideoStore();
+
+  const [loading, setLoading] = useState(true);
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [channelVideos, setChannelVideos] = useState<Video[]>([]);
 
   useEffect(() => {
-    setHydrated(true);
-  }, []);
+    let cancelled = false;
 
-  const channel = getChannelBySlug(channelSlug);
+    async function load() {
+      setLoading(true);
+      const ch = await loadChannelBySlug(channelSlug);
+      if (cancelled) return;
 
-  // Wait for store hydration before showing "not found"
-  if (!hydrated) {
+      setChannel(ch);
+
+      if (ch) {
+        const results = await loadChannelVideos(ch.id);
+        if (!cancelled) {
+          setChannelVideos(results.map((r) => r.video));
+        }
+      }
+
+      if (!cancelled) setLoading(false);
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [channelSlug, loadChannelBySlug, loadChannelVideos]);
+
+  if (loading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center py-32">
@@ -64,8 +87,6 @@ export default function ChannelPage() {
       </AppShell>
     );
   }
-
-  const channelVideos = getVideosByChannel(channel.id);
 
   return (
     <AppShell>

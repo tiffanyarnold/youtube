@@ -1,161 +1,190 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { Channel, Video } from "./types";
-import { seedChannels, seedVideos } from "./seed-data";
+import {
+  fetchVideos,
+  fetchVideoById,
+  fetchChannelBySlug,
+  fetchChannelVideos,
+  incrementViews as apiIncrementViews,
+  uploadVideo as apiUploadVideo,
+} from "./api";
 
 interface VideoStore {
-  channels: Channel[];
-  videos: Video[];
+  // UI state
   sidebarOpen: boolean;
   searchQuery: string;
 
-  // Actions
+  // Cached data
+  videos: Video[];
+  channelMap: Record<string, Channel>;
+  videoMap: Record<string, { video: Video; channel: Channel }>;
+
+  // Loading states
+  loading: boolean;
+  error: string | null;
+
+  // UI Actions
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSearchQuery: (query: string) => void;
 
-  // Video actions
-  addVideo: (video: Video) => void;
-  incrementViews: (videoId: string) => void;
-  getVideoById: (videoId: string) => Video | undefined;
-  getVideosByChannel: (channelId: string) => Video[];
-  getFilteredVideos: () => Video[];
-  getRecommendedVideos: (excludeVideoId: string) => Video[];
+  // Async data actions
+  loadVideos: (search?: string) => Promise<void>;
+  loadVideoById: (
+    videoId: string
+  ) => Promise<{ video: Video; channel: Channel } | null>;
+  loadChannelBySlug: (slug: string) => Promise<Channel | null>;
+  loadChannelVideos: (
+    channelId: string
+  ) => Promise<{ video: Video; channel: Channel }[]>;
+  loadRecommendedVideos: (
+    excludeVideoId: string
+  ) => Promise<{ video: Video; channel: Channel }[]>;
+  incrementViews: (videoId: string) => Promise<void>;
+  uploadVideo: (params: {
+    channelName: string;
+    title: string;
+    description: string;
+    thumbnailUrl: string;
+    videoUrl: string;
+    duration?: string;
+    tags?: string[];
+  }) => Promise<{ video: Video; channel: Channel }>;
 
-  // Channel actions
-  addChannel: (channel: Channel) => void;
+  // Helpers
   getChannelById: (channelId: string) => Channel | undefined;
-  getChannelBySlug: (slug: string) => Channel | undefined;
-  findOrCreateChannel: (name: string) => Channel;
 }
 
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
+export const useVideoStore = create<VideoStore>()((set, get) => ({
+  sidebarOpen: true,
+  searchQuery: "",
+  videos: [],
+  channelMap: {},
+  videoMap: {},
+  loading: false,
+  error: null,
 
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  setSearchQuery: (query) => set({ searchQuery: query }),
 
-export const useVideoStore = create<VideoStore>()(
-  persist(
-    (set, get) => ({
-      channels: seedChannels,
-      videos: seedVideos,
-      sidebarOpen: true,
-      searchQuery: "",
-
-      setSidebarOpen: (open) => set({ sidebarOpen: open }),
-      toggleSidebar: () =>
-        set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-      setSearchQuery: (query) => set({ searchQuery: query }),
-
-      addVideo: (video) =>
-        set((state) => ({ videos: [video, ...state.videos] })),
-
-      incrementViews: (videoId) =>
-        set((state) => ({
-          videos: state.videos.map((v) =>
-            v.id === videoId ? { ...v, views: v.views + 1 } : v
-          ),
-        })),
-
-      getVideoById: (videoId) => get().videos.find((v) => v.id === videoId),
-
-      getVideosByChannel: (channelId) =>
-        get()
-          .videos.filter((v) => v.channelId === channelId)
-          .sort(
-            (a, b) =>
-              new Date(b.uploadedAt).getTime() -
-              new Date(a.uploadedAt).getTime()
-          ),
-
-      getFilteredVideos: () => {
-        const { videos, searchQuery } = get();
-        if (!searchQuery.trim()) return videos;
-        const q = searchQuery.toLowerCase();
-        return videos.filter(
-          (v) =>
-            v.title.toLowerCase().includes(q) ||
-            v.description.toLowerCase().includes(q)
-        );
-      },
-
-      getRecommendedVideos: (excludeVideoId) =>
-        get()
-          .videos.filter((v) => v.id !== excludeVideoId)
-          .sort(
-            (a, b) =>
-              new Date(b.uploadedAt).getTime() -
-              new Date(a.uploadedAt).getTime()
-          )
-          .slice(0, 10),
-
-      addChannel: (channel) =>
-        set((state) => ({ channels: [...state.channels, channel] })),
-
-      getChannelById: (channelId) =>
-        get().channels.find((c) => c.id === channelId),
-
-      getChannelBySlug: (slug) =>
-        get().channels.find((c) => c.slug === slug),
-
-      findOrCreateChannel: (name) => {
-        const slug = generateSlug(name);
-        const existing = get().channels.find((c) => c.slug === slug);
-        if (existing) return existing;
-
-        const newChannel: Channel = {
-          id: `ch-${generateId()}`,
-          name,
-          slug,
-          subscriberCount: 0,
-          createdAt: new Date().toISOString(),
-        };
-        get().addChannel(newChannel);
-        return newChannel;
-      },
-    }),
-    {
-      name: "video-platform-store",
-      // Only persist channels and videos, not UI state
-      partialize: (state) => ({
-        channels: state.channels,
-        videos: state.videos,
-      }),
-      // Merge persisted data with seed data to avoid duplicates
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<VideoStore> | undefined;
-        if (!persisted) return currentState;
-
-        // Merge channels: use persisted channels, add any seed channels not already present
-        const persistedChannels = persisted.channels || [];
-        const persistedChannelIds = new Set(
-          persistedChannels.map((c) => c.id)
-        );
-        const mergedChannels = [
-          ...persistedChannels,
-          ...seedChannels.filter((c) => !persistedChannelIds.has(c.id)),
-        ];
-
-        // Merge videos: use persisted videos, add any seed videos not already present
-        const persistedVideos = persisted.videos || [];
-        const persistedVideoIds = new Set(persistedVideos.map((v) => v.id));
-        const mergedVideos = [
-          ...persistedVideos,
-          ...seedVideos.filter((v) => !persistedVideoIds.has(v.id)),
-        ];
-
-        return {
-          ...currentState,
-          channels: mergedChannels,
-          videos: mergedVideos,
-        };
-      },
+  loadVideos: async (search?: string) => {
+    set({ loading: true, error: null });
+    try {
+      const results = await fetchVideos({ search });
+      const videos = results.map((r) => r.video);
+      const channelMap = { ...get().channelMap };
+      results.forEach((r) => {
+        channelMap[r.channel.id] = r.channel;
+      });
+      set({ videos, channelMap, loading: false });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      set({ error: message, loading: false });
     }
-  )
-);
+  },
+
+  loadVideoById: async (videoId: string) => {
+    const cached = get().videoMap[videoId];
+    if (cached) return cached;
+
+    try {
+      const result = await fetchVideoById(videoId);
+      if (result) {
+        set((state) => ({
+          videoMap: { ...state.videoMap, [videoId]: result },
+          channelMap: {
+            ...state.channelMap,
+            [result.channel.id]: result.channel,
+          },
+        }));
+      }
+      return result;
+    } catch {
+      return null;
+    }
+  },
+
+  loadChannelBySlug: async (slug: string) => {
+    try {
+      const channel = await fetchChannelBySlug(slug);
+      if (channel) {
+        set((state) => ({
+          channelMap: { ...state.channelMap, [channel.id]: channel },
+        }));
+      }
+      return channel;
+    } catch {
+      return null;
+    }
+  },
+
+  loadChannelVideos: async (channelId: string) => {
+    try {
+      const results = await fetchChannelVideos(channelId);
+      const channelMap = { ...get().channelMap };
+      results.forEach((r) => {
+        channelMap[r.channel.id] = r.channel;
+      });
+      set({ channelMap });
+      return results;
+    } catch {
+      return [];
+    }
+  },
+
+  loadRecommendedVideos: async (excludeVideoId: string) => {
+    try {
+      const results = await fetchVideos({
+        excludeId: excludeVideoId,
+        limit: 10,
+      });
+      const channelMap = { ...get().channelMap };
+      results.forEach((r) => {
+        channelMap[r.channel.id] = r.channel;
+      });
+      set({ channelMap });
+      return results;
+    } catch {
+      return [];
+    }
+  },
+
+  incrementViews: async (videoId: string) => {
+    try {
+      await apiIncrementViews(videoId);
+      // Update local cache
+      set((state) => ({
+        videos: state.videos.map((v) =>
+          v.id === videoId ? { ...v, views: v.views + 1 } : v
+        ),
+        videoMap: state.videoMap[videoId]
+          ? {
+              ...state.videoMap,
+              [videoId]: {
+                ...state.videoMap[videoId],
+                video: {
+                  ...state.videoMap[videoId].video,
+                  views: state.videoMap[videoId].video.views + 1,
+                },
+              },
+            }
+          : state.videoMap,
+      }));
+    } catch {
+      // silently fail view increment
+    }
+  },
+
+  uploadVideo: async (params) => {
+    const result = await apiUploadVideo(params);
+    set((state) => ({
+      videos: [result.video, ...state.videos],
+      videoMap: { ...state.videoMap, [result.video.id]: result },
+      channelMap: { ...state.channelMap, [result.channel.id]: result.channel },
+    }));
+    return result;
+  },
+
+  getChannelById: (channelId: string) => get().channelMap[channelId],
+}));

@@ -4,34 +4,63 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { ThumbsUp, ThumbsDown, Share2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ThumbsUp,
+  ThumbsDown,
+  Share2,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { VideoPlayer } from "@/components/video-player";
 import { VideoCard } from "@/components/video-card";
 import { useVideoStore } from "@/lib/store";
 import { formatViews, formatTimeAgo, formatSubscribers } from "@/lib/format";
+import { Video, Channel } from "@/lib/types";
 
 export default function WatchPage() {
   const params = useParams();
   const videoId = params.videoId as string;
-  const {
-    getVideoById,
-    getChannelById,
-    getRecommendedVideos,
-    incrementViews,
-  } = useVideoStore();
+  const { loadVideoById, loadRecommendedVideos, incrementViews } =
+    useVideoStore();
 
   const [descExpanded, setDescExpanded] = useState(false);
   const [viewIncremented, setViewIncremented] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  const video = getVideoById(videoId);
-  const channel = video ? getChannelById(video.channelId) : undefined;
-  const recommended = getRecommendedVideos(videoId);
+  const [loading, setLoading] = useState(true);
+  const [video, setVideo] = useState<Video | null>(null);
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [recommended, setRecommended] = useState<
+    { video: Video; channel: Channel }[]
+  >([]);
 
   useEffect(() => {
-    setHydrated(true);
-  }, []);
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      const result = await loadVideoById(videoId);
+      if (cancelled) return;
+
+      if (result) {
+        setVideo(result.video);
+        setChannel(result.channel);
+      } else {
+        setVideo(null);
+        setChannel(null);
+      }
+
+      const recs = await loadRecommendedVideos(videoId);
+      if (!cancelled) {
+        setRecommended(recs);
+        setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId, loadVideoById, loadRecommendedVideos]);
 
   useEffect(() => {
     if (video && !viewIncremented) {
@@ -46,7 +75,7 @@ export default function WatchPage() {
     setDescExpanded(false);
   }, [videoId]);
 
-  if (!hydrated) {
+  if (loading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -86,10 +115,7 @@ export default function WatchPage() {
           {/* Main content */}
           <div className="flex-1 min-w-0">
             {/* Video player */}
-            <VideoPlayer
-              src={video.videoUrl}
-              poster={video.thumbnailUrl}
-            />
+            <VideoPlayer src={video.videoUrl} poster={video.thumbnailUrl} />
 
             {/* Video info */}
             <div className="mt-3">
@@ -201,17 +227,14 @@ export default function WatchPage() {
               Up next
             </h3>
             <div className="space-y-3">
-              {recommended.map((rec) => {
-                const recChannel = getChannelById(rec.channelId);
-                return (
-                  <VideoCard
-                    key={rec.id}
-                    video={rec}
-                    channel={recChannel}
-                    compact
-                  />
-                );
-              })}
+              {recommended.map((rec) => (
+                <VideoCard
+                  key={rec.video.id}
+                  video={rec.video}
+                  channel={rec.channel}
+                  compact
+                />
+              ))}
             </div>
           </div>
         </div>

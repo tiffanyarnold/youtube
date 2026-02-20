@@ -2,7 +2,7 @@
 
 const nextConfig = {
     images: {
-        domains: ['images.unsplash.com', 'img.youtube.com'],
+        domains: ['images.unsplash.com', 'img.youtube.com', 'commondatastorage.googleapis.com'],
     }
 };
 
