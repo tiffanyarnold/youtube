@@ -1,3 +1,5 @@
+// deno-lint-ignore-file no-explicit-any
+// @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -14,7 +16,7 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_KEY")!
     );
 
     const url = new URL(req.url);
