@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { Channel, Video } from "./types";
 import type { Database } from "@/types/supabase";
+import { getDemoVideosWithChannels, DEMO_CHANNELS } from "./demo-data";
 
 type ChannelRow = Database["public"]["Tables"]["channels"]["Row"];
 type VideoRow = Database["public"]["Tables"]["videos"]["Row"];
@@ -56,68 +57,131 @@ export async function fetchVideos(options?: {
   limit?: number;
   tag?: string;
 }): Promise<{ video: Video; channel: Channel }[]> {
-  let query = supabase
-    .from("videos")
-    .select(
-      "*, channels!inner(id, name, slug, avatar_url, banner_url, description, subscriber_count, created_at)"
-    )
-    .order("uploaded_at", { ascending: false })
-    .limit(options?.limit || 50);
+  try {
+    let query = supabase
+      .from("videos")
+      .select(
+        "*, channels!inner(id, name, slug, avatar_url, banner_url, description, subscriber_count, created_at)"
+      )
+      .order("uploaded_at", { ascending: false })
+      .limit(options?.limit || 50);
+
+    if (options?.search) {
+      const sanitized = sanitizeSearch(options.search);
+      query = query.or(
+        `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`
+      );
+    }
+
+    if (options?.tag) {
+      query = query.contains("tags", [options.tag]);
+    }
+
+    if (options?.channelId) {
+      query = query.eq("channel_id", options.channelId);
+    }
+
+    if (options?.excludeId) {
+      query = query.neq("id", options.excludeId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    const results = (data || []).map((row) => mapVideoWithChannel(row as unknown as VideoWithChannel));
+
+    // If database returned empty results and no filters applied, use demo data
+    if (results.length === 0 && !options?.search && !options?.channelId && !options?.tag) {
+      return applyDemoFilters(options);
+    }
+
+    return results;
+  } catch {
+    // On any error, fallback to demo data
+    return applyDemoFilters(options);
+  }
+}
+
+function applyDemoFilters(options?: {
+  search?: string;
+  channelId?: string;
+  excludeId?: string;
+  limit?: number;
+  tag?: string;
+}): { video: Video; channel: Channel }[] {
+  let results = getDemoVideosWithChannels();
 
   if (options?.search) {
-    const sanitized = sanitizeSearch(options.search);
-    query = query.or(
-      `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`
+    const term = options.search.toLowerCase();
+    results = results.filter(
+      (r) =>
+        r.video.title.toLowerCase().includes(term) ||
+        r.video.description.toLowerCase().includes(term)
     );
   }
 
   if (options?.tag) {
-    query = query.contains("tags", [options.tag]);
+    const tag = options.tag.toLowerCase();
+    results = results.filter((r) =>
+      r.video.tags?.some((t) => t.toLowerCase() === tag)
+    );
   }
 
   if (options?.channelId) {
-    query = query.eq("channel_id", options.channelId);
+    results = results.filter((r) => r.video.channelId === options.channelId);
   }
 
   if (options?.excludeId) {
-    query = query.neq("id", options.excludeId);
+    results = results.filter((r) => r.video.id !== options.excludeId);
   }
 
-  const { data, error } = await query;
+  if (options?.limit) {
+    results = results.slice(0, options.limit);
+  }
 
-  if (error) throw error;
-
-  return (data || []).map((row) => mapVideoWithChannel(row as unknown as VideoWithChannel));
+  return results;
 }
 
 export async function fetchVideoById(
   videoId: string
 ): Promise<{ video: Video; channel: Channel } | null> {
-  const { data, error } = await supabase
-    .from("videos")
-    .select(
-      "*, channels!inner(id, name, slug, avatar_url, banner_url, description, subscriber_count, created_at)"
-    )
-    .eq("id", videoId)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("videos")
+      .select(
+        "*, channels!inner(id, name, slug, avatar_url, banner_url, description, subscriber_count, created_at)"
+      )
+      .eq("id", videoId)
+      .single();
 
-  if (error) return null;
+    if (error) throw error;
 
-  return mapVideoWithChannel(data as unknown as VideoWithChannel);
+    return mapVideoWithChannel(data as unknown as VideoWithChannel);
+  } catch {
+    // Fallback to demo data
+    const demo = getDemoVideosWithChannels().find((r) => r.video.id === videoId);
+    return demo || null;
+  }
 }
 
 export async function fetchChannelBySlug(
   slug: string
 ): Promise<Channel | null> {
-  const { data, error } = await supabase
-    .from("channels")
-    .select("*")
-    .eq("slug", slug)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("channels")
+      .select("*")
+      .eq("slug", slug)
+      .single();
 
-  if (error) return null;
+    if (error) throw error;
 
-  return mapChannel(data);
+    return mapChannel(data);
+  } catch {
+    // Fallback to demo data
+    return DEMO_CHANNELS.find((c) => c.slug === slug) || null;
+  }
 }
 
 export async function fetchChannelVideos(
